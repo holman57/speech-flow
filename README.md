@@ -4,28 +4,80 @@
 
 ---
 
-## Features
+## Overview
 
-- **Real-Time Voice Streaming**: Low-latency audio ingestion and buffer pipeline for fluid voice interaction.
-- **Speech-to-Text (STT)**: Integration with local and cloud transcription engines.
-- **Text-to-Speech (TTS)**: Dynamic natural speech synthesis with configurable voices and audio playback.
-- **Intent & Directive Routing**: Converts transcribed voice streams into structured commands and directives for autonomous systems.
-- **Cross-Platform & Mobile Friendly**: Ready for desktop, web, and mobile endpoints.
+**Speech Flow** is a real-time conversational voice interface that visualizes rolling speech buffers interpreted from microphone input, dispatches structured utterances to **Adrastea**, and plays Adrastea's cognitive decisions aloud via Text-to-Speech (TTS).
 
 ---
 
-## Getting Started
+## Architecture & Interaction Loop
 
-### Prerequisites
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User (Voice / Mic)
+    participant SF as Speech Flow (Web / Cockpit)
+    participant Buffer as SpeechBuffer Visualizer
+    participant IPC as IPC Channel (127.0.0.1:8765)
+    participant Adrastea as Adrastea (System Alpha / Beta)
+    participant TTS as TTS Engine (Speakers)
 
-- Python 3.10+
-- Audio I/O devices (Microphone & Speakers)
+    User->>SF: Speaks into microphone
+    SF->>Buffer: Live streaming word recognition
+    Buffer->>SF: Real-time waveform & token buffer visualization
+    alt Silence detected (1.5s) or "Send" button pressed
+        SF->>IPC: Transmit SIG_CONVERSATION (full word buffer)
+        IPC->>Adrastea: Deliver text & tokens
+        Adrastea->>Adrastea: Cognitive evaluation & directive execution
+        Adrastea-->>IPC: Return decision, action badge & voice reply
+        IPC-->>SF: Deliver response payload
+        SF->>SF: Render dialogue bubble with action badge
+        SF->>TTS: Synthesize voice response
+        TTS-->>User: Plays response out loud through speakers
+    end
+```
 
-### Installation
+---
 
-```bash
-git clone https://github.com/holman57/speech-flow.git
-cd speech-flow
+## Core Features
+
+- **Real-Time Word Buffer Visualizer**:
+  - Live audio frequency and waveform spectrum pulsing with microphone input.
+  - Interactive rolling word buffer displaying recognized words with confidence and timestamps.
+  - Highlighting of interim speech hypotheses versus finalized word tokens.
+  - Telemetry: Live Words-Per-Minute (WPM), audio volume level, and word count.
+- **Bidirectional Interface with Adrastea**:
+  - Communicates directly with Adrastea's `127.0.0.1:8765` IPC socket using `SIG_CONVERSATION`.
+  - Adrastea's decision engine automatically routes commands (e.g. *"What is your status?"*, *"Wake up"*, *"Go to sleep"*, *"Run system diagnostics"*) or general conversation through its cognitive LLM engine.
+- **Natural Text-To-Speech (TTS)**:
+  - Browser SpeechSynthesis for zero-lag playback on desktop and mobile browsers.
+  - Native Windows SAPI voice (`win32com.client`) for desktop and headless execution.
+- **Mobile & Desktop Responsive**:
+  - Fully functional on phone browsers (Safari / Chrome) over Tailscale (`http://100.112.85.87:7860`) or local Wi-Fi.
+
+---
+
+## Quick Start
+
+### 1. Launch Adrastea
+Ensure Adrastea is running so its IPC socket is open:
+```powershell
+cd C:\Users\LukeH\Adrastea
+python -m adrastea.cli keepalive
+```
+
+### 2. Launch Speech Flow
+```powershell
+cd C:\Users\LukeH\speech-flow
+python -m speech_flow.cli serve --port 7860
+```
+
+Open your browser to **`http://127.0.0.1:7860`** (or access from your phone over Tailscale at **`http://100.112.85.87:7860`**).
+
+### 3. Verification & CLI Test
+To test the roundtrip without opening a browser:
+```powershell
+python -m speech_flow.cli test --text "Adrastea, what is your current system status?"
 ```
 
 ---

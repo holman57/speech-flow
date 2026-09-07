@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Speech Flow — Conversational Voice Interface for Adrastea</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-pulse"></div>
+        <h1>SPEECH<span class="highlight">FLOW</span></h1>
+        <span class="version-tag">v0.1</span>
+      </div>
+      <div class="system-status">
+        <div class="status-indicator" id="adrasteaStatusBadge">
+          <span class="status-dot offline" id="statusDot"></span>
+          <span class="status-text" id="statusText">Connecting to Adrastea...</span>
+        </div>
+        <button class="btn-icon" id="btnRefreshStatus" title="Check Adrastea Connection">⟳</button>
+      </div>
+    </header>
+
+    <!-- Main Visualizer Area -->
+    <main class="main-layout">
+      <!-- Left / Top Column: Audio & Speech Buffer Visualizer -->
+      <section class="visualizer-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon">🎙️</span>
+            <h2>Speech Buffer Visualizer</h2>
+          </div>
+          <div class="buffer-metrics">
+            <div class="metric"><span class="label">WORDS:</span> <span class="val" id="metricWordCount">0</span></div>
+            <div class="metric"><span class="label">WPM:</span> <span class="val" id="metricWpm">0.0</span></div>
+            <div class="metric"><span class="label">AUDIO:</span> <span class="val" id="metricAudioLevel">0%</span></div>
+          </div>
+        </div>
+
+        <!-- Real-Time Audio Canvas Visualizer -->
+        <div class="canvas-container">
+          <canvas id="audioVisualizer" width="800" height="120"></canvas>
+          <div class="mic-listening-indicator" id="listeningIndicator">
+            <span class="pulse-ring"></span>
+            <span class="pulse-label">LISTENING</span>
+          </div>
+        </div>
+
+        <!-- Rolling Word Buffer Display -->
+        <div class="word-buffer-display" id="wordBufferDisplay">
+          <div class="empty-placeholder" id="emptyPlaceholder">
+            Start speaking into the microphone to see real-time words flow into the buffer...
+          </div>
+          <div class="tokens-container" id="tokensContainer"></div>
+          <div class="interim-phrase" id="interimDisplay"></div>
+        </div>
+
+        <!-- Buffer Action Controls -->
+        <div class="buffer-controls">
+          <button class="btn btn-mic" id="btnMicToggle">
+            <span class="mic-icon" id="micIcon">🎤</span>
+            <span id="micBtnText">Start Listening</span>
+          </button>
+          
+          <button class="btn btn-dispatch" id="btnDispatchBuffer" title="Send speech buffer to Adrastea">
+            <span>Send to Adrastea ⚡</span>
+          </button>
+          
+          <button class="btn btn-clear" id="btnClearBuffer" title="Clear current buffer">
+            <span>Clear</span>
+          </button>
+        </div>
+
+        <!-- Audio Settings Bar -->
+        <div class="audio-settings-bar">
+          <label class="setting-item">
+            <span>Auto-Send on Pause:</span>
+            <input type="checkbox" id="autoSendCheckbox" checked />
+          </label>
+          <label class="setting-item">
+            <span>Browser TTS Voice:</span>
+            <select id="ttsVoiceSelect"></select>
+          </label>
+          <label class="setting-item">
+            <span>Speech Rate:</span>
+            <input type="range" id="ttsRateSlider" min="0.8" max="1.5" step="0.1" value="1.0" />
+          </label>
+        </div>
+      </section>
+
+      <!-- Right / Bottom Column: Conversational Dialogue Stream -->
+      <section class="conversation-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon">💬</span>
+            <h2>Conversational Interface</h2>
+          </div>
+          <div class="quick-directives">
+            <button class="chip-btn" data-cmd="What is your status?">Status</button>
+            <button class="chip-btn" data-cmd="Wake up">Wake</button>
+            <button class="chip-btn" data-cmd="Go to sleep">Sleep</button>
+            <button class="chip-btn" data-cmd="Run system health diagnostics">Health Check</button>
+          </div>
+        </div>
+
+        <!-- Message Dialogue Stream -->
+        <div class="dialogue-stream" id="dialogueStream">
+          <div class="dialogue-entry system-welcome">
+            <div class="bubble system">
+              <span class="avatar">⚡</span>
+              <div class="message-content">
+                <strong>Adrastea Conversational Interface Online</strong>
+                <p>Speak naturally or type your directive below. Word buffers will be streamed to Adrastea, which will decide the response and speak it aloud via TTS.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Text Fallback Input -->
+        <form class="text-input-bar" id="textInputForm">
+          <input type="text" id="textInput" placeholder="Type a message or voice directive for Adrastea..." autocomplete="off" />
+          <button type="submit" class="btn btn-send">Send</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
