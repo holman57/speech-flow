@@ -49,8 +49,8 @@ class MainHandler(tornado.web.RequestHandler):
 
 class StatusAPIHandler(tornado.web.RequestHandler):
     async def get(self):
-        adrastea_alive = await state.adrastea.is_connected()
-        ping_res = await state.adrastea.ping_adrastea() if adrastea_alive else None
+        ping_res = await state.adrastea.ping_adrastea()
+        adrastea_alive = ping_res is not None
         self.write({
             "status": "online",
             "adrastea_connected": adrastea_alive,
@@ -87,8 +87,13 @@ class CommandAPIHandler(tornado.web.RequestHandler):
             if config.desktop_tts_enabled:
                 state.tts.speak(reply_text)
 
+            client_id = data.get("clientId")
             # Broadcast update
-            state.broadcast({"type": "conversation_entry", "entry": entry})
+            state.broadcast({
+                "type": "conversation_entry",
+                "entry": entry,
+                "originClientId": client_id
+            })
             self.write(entry)
         except Exception as e:
             self.set_status(500)
@@ -138,13 +143,14 @@ class SpeechWebSocketHandler(tornado.websocket.WebSocketHandler):
                 })
 
             elif msg_type == "dispatch_buffer":
+                client_id = data.get("clientId")
                 # Send the accumulated buffer to Adrastea
                 full_text = state.buffer.get_full_text()
                 word_list = state.buffer.get_word_list()
                 if not full_text:
                     return
 
-                logger.info(f"Dispatching speech buffer to Adrastea: '{full_text}'")
+                logger.info(f"Dispatching speech buffer to Adrastea: '{full_text}' (clientId: {client_id})")
                 state.broadcast({
                     "type": "adrastea_thinking",
                     "prompt": full_text
@@ -177,7 +183,8 @@ class SpeechWebSocketHandler(tornado.websocket.WebSocketHandler):
                 # Broadcast response to frontend (frontend will play browser speech synthesis)
                 state.broadcast({
                     "type": "adrastea_response",
-                    "entry": entry
+                    "entry": entry,
+                    "originClientId": client_id
                 })
 
             elif msg_type == "clear_buffer":

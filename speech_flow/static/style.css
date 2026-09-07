@@ -416,6 +416,30 @@ body {
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   font-size: 0.8rem;
+  max-width: 220px;
+}
+
+.voice-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-voice-test {
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: var(--accent-cyan);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-voice-test:hover {
+  background: rgba(0, 240, 255, 0.25);
+  border-color: var(--accent-cyan);
 }
 
 /* Quick Directives */

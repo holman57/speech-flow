@@ -12,11 +12,15 @@ class SpeechFlowApp {
     this.lastSpeechTime = 0;
     this.animationFrameId = null;
 
+    // Client Identification (prevents duplicate audio across multiple open tabs)
+    this.clientId = 'sf_' + Math.random().toString(36).substring(2, 9);
+
     // TTS Settings
     this.synth = window.speechSynthesis;
     this.voices = [];
     this.selectedVoice = null;
     this.speechRate = 1.0;
+    this.isMuted = false;
 
     // DOM Elements
     this.btnMicToggle = document.getElementById('btnMicToggle');
@@ -37,13 +41,15 @@ class SpeechFlowApp {
     this.statusText = document.getElementById('statusText');
     this.btnRefreshStatus = document.getElementById('btnRefreshStatus');
 
-    // Metrics
+    // Metrics & Audio Settings
     this.metricWordCount = document.getElementById('metricWordCount');
     this.metricWpm = document.getElementById('metricWpm');
     this.metricAudioLevel = document.getElementById('metricAudioLevel');
     this.autoSendCheckbox = document.getElementById('autoSendCheckbox');
     this.ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
     this.ttsRateSlider = document.getElementById('ttsRateSlider');
+    this.btnTestVoice = document.getElementById('btnTestVoice');
+    this.muteCheckbox = document.getElementById('muteCheckbox');
 
     this.initWebSocket();
     this.initSpeechRecognition();
@@ -101,7 +107,16 @@ class SpeechFlowApp {
 
       case 'adrastea_response':
         this.removeThinkingBubble();
-        this.appendDialogueEntry(data.entry, true);
+        // Only trigger voice playback on the specific client that initiated the query
+        const shouldSpeak = !data.originClientId || data.originClientId === this.clientId;
+        this.appendDialogueEntry(data.entry, shouldSpeak);
+        break;
+
+      case 'conversation_entry':
+        // If query was submitted via text from another client, show in stream without duplicate audio
+        if (data.originClientId !== this.clientId) {
+          this.appendDialogueEntry(data.entry, false);
+        }
         break;
 
       case 'adrastea_status':
@@ -359,7 +374,10 @@ class SpeechFlowApp {
   }
 
   dispatchBuffer() {
-    this.sendWsMessage({ type: 'dispatch_buffer' });
+    this.sendWsMessage({
+      type: 'dispatch_buffer',
+      clientId: this.clientId
+    });
   }
 
   clearBuffer() {
@@ -431,52 +449,72 @@ class SpeechFlowApp {
   // -------------------------------------------------------------------------
   initVoices() {
     const populateVoices = () => {
-      const savedURI = localStorage.getItem('speech_flow_voice_uri');
-      this.voices = this.synth.getVoices();
+      this.voices = this.synth ? this.synth.getVoices() : [];
       if (!this.voices || this.voices.length === 0) return;
 
+      const savedURI = localStorage.getItem('speech_flow_voice_uri');
       this.ttsVoiceSelect.innerHTML = '';
       let targetIndex = -1;
+
+      // 1. Check for previously selected/saved voice URI
+      if (savedURI) {
+        targetIndex = this.voices.findIndex((v) => v.voiceURI === savedURI);
+      }
+
+      // 2. Default to natural, Google, or default English voice
+      if (targetIndex === -1) {
+        targetIndex = this.voices.findIndex(
+          (v) => (v.default || v.name.includes('Natural') || v.name.includes('Google')) && v.lang.startsWith('en')
+        );
+      }
+
+      // 3. Fallback to first available voice
+      if (targetIndex === -1) {
+        targetIndex = 0;
+      }
 
       this.voices.forEach((v, idx) => {
         const opt = document.createElement('option');
         opt.value = idx;
         opt.textContent = `${v.name} (${v.lang})`;
-
-        if (savedURI && v.voiceURI === savedURI) {
-          targetIndex = idx;
-        } else if (targetIndex === -1 && (v.default || v.name.includes('Natural') || v.name.includes('Google'))) {
-          targetIndex = idx;
-        }
         this.ttsVoiceSelect.appendChild(opt);
       });
-
-      if (targetIndex === -1 && this.voices.length > 0) {
-        targetIndex = 0;
-      }
 
       this.ttsVoiceSelect.selectedIndex = targetIndex;
       this.selectedVoice = this.voices[targetIndex];
     };
 
     populateVoices();
-    if (this.synth.onvoiceschanged !== undefined) {
+    if (this.synth && this.synth.onvoiceschanged !== undefined) {
       this.synth.onvoiceschanged = populateVoices;
     }
   }
 
   speakText(text) {
     if (!text || !this.synth) return;
+    if (this.isMuted) return;
+
     try {
       // Immediately cancel any previous or pending speech utterance
       this.synth.cancel();
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (this.selectedVoice) {
-        utterance.voice = this.selectedVoice;
-      }
-      utterance.rate = parseFloat(this.ttsRateSlider.value) || 1.0;
-      this.synth.speak(utterance);
+      // Delay 50ms to ensure Chromium/Edge audio synthesis queue flushes cleanly
+      setTimeout(() => {
+        try {
+          if (this.isMuted) return;
+          const utterance = new SpeechSynthesisUtterance(text);
+          if (this.selectedVoice) {
+            // Re-resolve voice object from live voices to avoid stale reference fallback
+            const currentVoices = this.synth.getVoices();
+            const voice = currentVoices.find((v) => v.voiceURI === this.selectedVoice.voiceURI) || this.selectedVoice;
+            utterance.voice = voice;
+          }
+          utterance.rate = parseFloat(this.ttsRateSlider.value) || 1.0;
+          this.synth.speak(utterance);
+        } catch (innerErr) {
+          console.warn('Browser TTS speak error:', innerErr);
+        }
+      }, 50);
     } catch (err) {
       console.warn('Browser TTS synthesis error:', err);
     }
@@ -517,6 +555,22 @@ class SpeechFlowApp {
     this.btnDispatchBuffer.addEventListener('click', () => this.dispatchBuffer());
     this.btnClearBuffer.addEventListener('click', () => this.clearBuffer());
     this.btnRefreshStatus.addEventListener('click', () => this.checkAdrasteaStatus());
+
+    if (this.muteCheckbox) {
+      this.muteCheckbox.addEventListener('change', (e) => {
+        this.isMuted = e.target.checked;
+        if (this.isMuted && this.synth) {
+          this.synth.cancel();
+        }
+      });
+    }
+
+    if (this.btnTestVoice) {
+      this.btnTestVoice.addEventListener('click', () => {
+        const name = this.selectedVoice ? this.selectedVoice.name : 'Default Voice';
+        this.speakText(`Speech Flow voice ready. Using ${name}.`);
+      });
+    }
 
     this.ttsVoiceSelect.addEventListener('change', (e) => {
       // Cancel any ongoing speech immediately so voices don't overlap
@@ -564,7 +618,10 @@ class SpeechFlowApp {
       const resp = await fetch('/api/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text })
+        body: JSON.stringify({
+          text: text,
+          clientId: this.clientId
+        })
       });
       const data = await resp.json();
       this.removeThinkingBubble();
