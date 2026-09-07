@@ -18,8 +18,10 @@ class Config:
     silence_threshold_seconds: float = float(os.getenv("SPEECH_FLOW_SILENCE_THRESHOLD", "1.5"))
     max_buffer_words: int = int(os.getenv("SPEECH_FLOW_MAX_BUFFER_WORDS", "100"))
 
-    # Local TTS Settings
-    tts_enabled: bool = os.getenv("SPEECH_FLOW_TTS_ENABLED", "true").lower() == "true"
+    # Local TTS Settings (Desktop SAPI speaker playback)
+    # Default is False so only the user's selected browser voice plays in Web/Mobile mode
+    desktop_tts_enabled: bool = os.getenv("SPEECH_FLOW_DESKTOP_TTS", "false").lower() == "true"
+    tts_enabled: bool = desktop_tts_enabled
     tts_rate: int = int(os.getenv("SPEECH_FLOW_TTS_RATE", "0"))  # -10 to 10 for SAPI
 
     root_dir: Path = Path(__file__).resolve().parent.parent

@@ -431,18 +431,32 @@ class SpeechFlowApp {
   // -------------------------------------------------------------------------
   initVoices() {
     const populateVoices = () => {
+      const savedURI = localStorage.getItem('speech_flow_voice_uri');
       this.voices = this.synth.getVoices();
+      if (!this.voices || this.voices.length === 0) return;
+
       this.ttsVoiceSelect.innerHTML = '';
+      let targetIndex = -1;
+
       this.voices.forEach((v, idx) => {
         const opt = document.createElement('option');
         opt.value = idx;
         opt.textContent = `${v.name} (${v.lang})`;
-        if (v.default || v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('David')) {
-          opt.selected = true;
-          this.selectedVoice = v;
+
+        if (savedURI && v.voiceURI === savedURI) {
+          targetIndex = idx;
+        } else if (targetIndex === -1 && (v.default || v.name.includes('Natural') || v.name.includes('Google'))) {
+          targetIndex = idx;
         }
         this.ttsVoiceSelect.appendChild(opt);
       });
+
+      if (targetIndex === -1 && this.voices.length > 0) {
+        targetIndex = 0;
+      }
+
+      this.ttsVoiceSelect.selectedIndex = targetIndex;
+      this.selectedVoice = this.voices[targetIndex];
     };
 
     populateVoices();
@@ -454,9 +468,13 @@ class SpeechFlowApp {
   speakText(text) {
     if (!text || !this.synth) return;
     try {
-      this.synth.cancel(); // Cancel any ongoing utterance
+      // Immediately cancel any previous or pending speech utterance
+      this.synth.cancel();
+
       const utterance = new SpeechSynthesisUtterance(text);
-      if (this.selectedVoice) utterance.voice = this.selectedVoice;
+      if (this.selectedVoice) {
+        utterance.voice = this.selectedVoice;
+      }
       utterance.rate = parseFloat(this.ttsRateSlider.value) || 1.0;
       this.synth.speak(utterance);
     } catch (err) {
@@ -501,7 +519,13 @@ class SpeechFlowApp {
     this.btnRefreshStatus.addEventListener('click', () => this.checkAdrasteaStatus());
 
     this.ttsVoiceSelect.addEventListener('change', (e) => {
-      this.selectedVoice = this.voices[e.target.value];
+      // Cancel any ongoing speech immediately so voices don't overlap
+      if (this.synth) this.synth.cancel();
+      const idx = parseInt(e.target.value, 10);
+      if (this.voices[idx]) {
+        this.selectedVoice = this.voices[idx];
+        localStorage.setItem('speech_flow_voice_uri', this.selectedVoice.voiceURI);
+      }
     });
 
     // Quick Directive chips

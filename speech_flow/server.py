@@ -83,8 +83,8 @@ class CommandAPIHandler(tornado.web.RequestHandler):
             }
             state.conversation_history.append(entry)
 
-            # Local TTS playback
-            if config.tts_enabled:
+            # Local desktop TTS playback (only if explicitly enabled on server)
+            if config.desktop_tts_enabled:
                 state.tts.speak(reply_text)
 
             # Broadcast update
@@ -170,11 +170,11 @@ class SpeechWebSocketHandler(tornado.websocket.WebSocketHandler):
                 }
                 state.conversation_history.append(entry)
 
-                # Local desktop TTS playback
-                if config.tts_enabled:
+                # Local desktop TTS playback (only if explicitly enabled on server)
+                if config.desktop_tts_enabled:
                     state.tts.speak(reply_text)
 
-                # Broadcast response to frontend (frontend will also play browser speech synthesis)
+                # Broadcast response to frontend (frontend will play browser speech synthesis)
                 state.broadcast({
                     "type": "adrastea_response",
                     "entry": entry
