@@ -1,0 +1,22 @@
+{
+  "name": "speech-flow",
+  "version": "0.2.0",
+  "owner": "holman57",
+  "description": "Real-time speech orchestration and audio visualizer with live rolling word buffers and bidirectional Adrastea IPC bridge.",
+  "tech_stack": {
+    "engine": "Python (asyncio, sounddevice, Vosk/Whisper)",
+    "ui": "Web frontend / WebSocket live visualizer",
+    "ipc": "Socket client to Adrastea IPC host"
+  },
+  "test_command": "python -m unittest discover tests",
+  "features": [
+    "Voice Activity Detection (VAD) with energy gating and silence cutoff",
+    "Push-to-Talk (PTT) keyboard controller and audio stream gate",
+    "Rolling word buffer with dynamic confidence telemetry",
+    "Bidirectional socket client connecting to Adrastea"
+  ],
+  "audio_guardrails": {
+    "silence_physical_speakers_unless_active": true
+  },
+  "active_issues": [2]
+}
